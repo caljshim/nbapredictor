@@ -3,6 +3,11 @@ from bs4 import BeautifulSoup, Comment
 from pymongo import MongoClient
 from selenium import webdriver
 from selenium.webdriver.common.by import By
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+client = MongoClient(os.getenv("DATABASE_URL"))
 
 db = client['nba_database']
 collection = db['gamelogs']
