@@ -5,6 +5,7 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from dotenv import load_dotenv
 import os
+import pandas as pd
 
 load_dotenv()
 client = MongoClient(os.getenv("DATABASE_URL"))
@@ -12,12 +13,38 @@ client = MongoClient(os.getenv("DATABASE_URL"))
 db = client['nba_database']
 collection = db['gamelogs']
 
-nba_abbreviations = [
-    "ATL", "BOS", "BKN", "CHA", "CHI", "CLE", "DAL", "DEN", "DET",
-    "GSW", "HOU", "IND", "LAC", "LAL", "MEM", "MIA", "MIL", "MIN",
-    "NOP", "NYK", "OKC", "ORL", "PHI", "PHX", "POR", "SAC", "SAS",
-    "TOR", "UTA", "WAS"
-]
+nba_teams = {
+    "ATL": "Atlanta Hawks",
+    "BOS": "Boston Celtics",
+    "BKN": "Brooklyn Nets",
+    "CHA": "Charlotte Hornets",
+    "CHI": "Chicago Bulls",
+    "CLE": "Cleveland Cavaliers",
+    "DAL": "Dallas Mavericks",
+    "DEN": "Denver Nuggets",
+    "DET": "Detroit Pistons",
+    "GSW": "Golden State Warriors",
+    "HOU": "Houston Rockets",
+    "IND": "Indiana Pacers",
+    "LAC": "Los Angeles Clippers",
+    "LAL": "Los Angeles Lakers",
+    "MEM": "Memphis Grizzlies",
+    "MIA": "Miami Heat",
+    "MIL": "Milwaukee Bucks",
+    "MIN": "Minnesota Timberwolves",
+    "NOP": "New Orleans Pelicans",
+    "NYK": "New York Knicks",
+    "OKC": "Oklahoma City Thunder",
+    "ORL": "Orlando Magic",
+    "PHI": "Philadelphia 76ers",
+    "PHX": "Phoenix Suns",
+    "POR": "Portland Trail Blazers",
+    "SAC": "Sacramento Kings",
+    "SAS": "San Antonio Spurs",
+    "TOR": "Toronto Raptors",
+    "UTA": "Utah Jazz",
+    "WAS": "Washington Wizards"
+}
 
 def getRosterFromTeam(team):
     url = f"https://www.basketball-reference.com/teams/{team}/2025.html"
@@ -58,15 +85,74 @@ def getTeamStats(team):
         stats.append(stat.text)
     return stats
 
+teamStats = getTeamStats('CLE')
+data = {
+    "name" : nba_teams['CLE'],
+    "roster" : getRosterFromTeam()[0],
+    "teamStats" : {
+        "MP": teamStats[1],
+        "FG": teamStats[2],
+        "FGA": teamStats[3],
+        "FG%": teamStats[4],
+        "3P": teamStats[5],
+        "3PA": teamStats[6],
+        "3P%": teamStats[7],
+        "2P": teamStats[8],
+        "2PA": teamStats[9],
+        "2P%": teamStats[10],
+        "FT": teamStats[11],
+        "FTA": teamStats[12],
+        "FT%": teamStats[13],
+        "ORB": teamStats[14],
+        "DRB": teamStats[15],
+        "TRB": teamStats[16],
+        "AST": teamStats[17],
+        "STL": teamStats[18],
+        "BLK": teamStats[19],
+        "TOV": teamStats[20],
+        "PF": teamStats[21],
+        "PTS": teamStats[22]
+    }
+}
+
+collection = db['teams']
+collection.insert_one(data)
+
+print('done')
+
+def getInjuryReports():
+    url = f"https://www.basketball-reference.com/friv/injuries.fcgi"
+    driver = webdriver.Chrome()
+    driver.get(url)
+
+    injuredPlayers = []
+
+    table = driver.find_element(By.ID, 'injuries')
+    body = table.find_element(By.TAG_NAME, 'tbody')
+    rows = body.find_elements(By.TAG_NAME, 'tr')
+
+    for row in rows:
+        injury = []
+        heading = row.find_element(By.TAG_NAME, 'th')
+        # name = heading.find_element(By.TAG_NAME, 'a')
+        injury.append(heading.text)
+        cols = row.find_elements(By.TAG_NAME, 'td')
+        for col in cols:
+            injury.append(col.text)
+
+        injuredPlayers.append(injury)
+
+    return injuredPlayers[:5]
+
 # names, links = getRosterFromTeam('CLE')
 
 # for name, link in zip(names, links):
 #     print(name, link[11:])
 
-print(getTeamStats('CLE'))
+# print(pd.DataFrame(getInjuryReports()))
 
 
-def getPlayerGameStats(name, playerId):
+def getPlayerGameStats(playerId):
     url = f'https://www.basketball-reference.com/players/a/{playerId}/gamelog/2025'
     response = requests.get(url)
     if response.status_code == 200:
